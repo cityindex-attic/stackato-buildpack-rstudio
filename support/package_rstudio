@@ -1,20 +1,15 @@
 #!/bin/bash
 
-# NOTE: Heroku Cedar stack on Ubuntu 10.04
-#  gcc needs to be 4.3
-
 set -e
+
+if [ -z "$RSTUDIO_VERSION" ]; then
+  echo -e "\e[00;31mError: Must set RSTUDIO_VERSION, i.e RSTUDIO_VERSION=0.97.449"
+  exit 1
+fi
 
 indent() {
   sed -u 's/^/       /'
 }
-
-rstudio_version="$1"
-
-if [ -z "$rstudio_version" ]; then
-  echo "USAGE: $0 VERSION"
-  exit 1
-fi
 
 basedir="$( cd -P "$( dirname "$0" )" && pwd )"
 workdir=`pwd`
@@ -27,15 +22,16 @@ boost_file="boost-${boost_version}.tar.gz"
 boost_tar_dir="boost_1_50_0"
 boost_dir="${vendordir}/boost"
 
-rstudio_url="https://nodeload.github.com/rstudio/rstudio/legacy.tar.gz/v${rstudio_version}"
-rstudio_file="rstudio-${rstudio_version}.tar.gz"
+rstudio_url="https://github.com/rstudio/rstudio/tarball/v${RSTUDIO_VERSION}"
+rstudio_file="rstudio-${RSTUDIO_VERSION}.tar.gz"
 rstudio_tar_dir="rstudio-rstudio-eb2ad5d"
 rstudio_dir="${vendordir}/rstudio"
 
 # create output directories
-mkdir -p "${vendordir}"
+sudo mkdir -p "${vendordir}"
+sudo chown -R $(whoami):$(whoami) "${vendordir}"
 
-echo "Install deb packages..." | indent
+echo "------> Install deb packages..." 
 # install deb pkgs
 mkdir -p "${package_dir}"
 mkdir -p "${package_dir}/etc/apt/sources.list.d"
@@ -43,12 +39,12 @@ mkdir -p "${package_dir}/etc/apt/preferences.d"
 mkdir -p "${package_dir}/var/lib/apt/lists/partial"
 mkdir -p "${package_dir}/var/cache/apt/archives/partial"
 cat << EOF > "${package_dir}/etc/apt/sources.list"
-deb http://archive.ubuntu.com/ubuntu lucid main
-deb http://archive.ubuntu.com/ubuntu lucid-security main
-deb http://archive.ubuntu.com/ubuntu lucid-updates main
-deb http://archive.ubuntu.com/ubuntu lucid universe
+deb http://archive.ubuntu.com/ubuntu precise main
+deb http://archive.ubuntu.com/ubuntu precise-security main
+deb http://archive.ubuntu.com/ubuntu precise-updates main
+deb http://archive.ubuntu.com/ubuntu precise universe
 
-deb http://cran.rstudio.com/bin/linux/ubuntu lucid/
+deb http://cran.rstudio.com/bin/linux/ubuntu precise/
 EOF
 apt-get -o Dir=${package_dir} -o Debug::NoLocking=1 --allow-unauthenticated --download-only update | indent
 apt-get -o Dir=${package_dir} -o Debug::NoLocking=1 --allow-unauthenticated --download-only -y --reinstall install \
@@ -88,10 +84,11 @@ export JAVA_HOME="${package_dir}/usr/lib/jvm/java-6-openjdk"
 export ANT_HOME="${package_dir}/usr/share/ant"
 export PATH="${package_dir}/usr/bin:$PATH"
 
-echo "Compiling rstudio v${rstudio_version}..." | indent
-#Compile RStudio
+echo "Compiling RStudio Server v${RSTUDIO_VERSION}..." | indent
+echo "------> Downloading source"
 if [ ! -f ${rstudio_file} ]; then
-  curl ${rstudio_url} > ${rstudio_file}
+  curl ${rstudio_url} > ${rstudio_file} 
+  tar zxf "${rstudio_file}"
 fi
 if [ ! -d ${rstudio_tar_dir} ]; then
   tar zxf "${rstudio_file}"
@@ -112,7 +109,7 @@ if [ ! -d ${rstudio_tar_dir} ]; then
           -DCMAKE_EXE_LINKER_FLAGS="-L${package_dir}/usr/lib -L${package_dir}/usr/lib/gcc/x86_64-linux-gnu/4.4" \
           -DCMAKE_CXX_FLAGS="-I${package_dir}/usr/include" \
           -DBoost_INCLUDE_DIR="${boost_dir}/include" -DBOOST_LIBRARYDIR="${boost_dir}/lib" \
-          -DRSTUDIO_TARGET=Server -DCMAKE_BUILD_TYPE=release \
+          -DRSTUDIO_TARGET=Server -DCMAKE_BUILD_TYPE=Release \
     .. | indent
     make install | indent
   cd ${workdir}
